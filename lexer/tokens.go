@@ -29,15 +29,11 @@ const (
 	Result
 	Exit
 	// Types
-	String
+	PrimitiveType
 	StringConstant
-	Integer
 	IntegerConstant
-	Real
 	RealConstant
-	Boolean
 	BooleanConstant
-	Character
 	CharacterConstant
 	Identifier
 	// Operators
@@ -98,24 +94,16 @@ func (k Kind) String() (s string) {
 		s = "result"
 	case Exit:
 		s = "exit"
-	case String:
-		s = "string"
+	case PrimitiveType:
+		s = "primitive type"
 	case StringConstant:
 		s = "string value"
-	case Integer:
-		s = "integer"
 	case IntegerConstant:
 		s = "integer value"
-	case Real:
-		s = "real"
 	case RealConstant:
 		s = "real value"
-	case Boolean:
-		s = "boolean"
 	case BooleanConstant:
 		s = "boolean value"
-	case Character:
-		s = "character"
 	case CharacterConstant:
 		s = "character value"
 	case Identifier:

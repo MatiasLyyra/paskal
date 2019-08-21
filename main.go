@@ -5,13 +5,18 @@ import (
 	"fmt"
 
 	"github.com/MatiasLyyra/paskal/lexer"
+	"github.com/MatiasLyyra/paskal/parser"
 )
 
 var code = `
-readln (a, b, c);
-s := (a + b + c)/2.0;
-area := sqrt(s * (s - a)*(s-b)*(s-c));
-writeln(area);   
+program main
+var
+foo, bar : integer
+const PI : REAL
+
+procedure baz(a b z: integer d : boolean pi : real);
+var
+x : boolean;
 `
 
 func main() {
@@ -23,5 +28,10 @@ func execute(code string) {
 		fmt.Printf("ERROR: %s\n", err)
 		return
 	}
-	fmt.Printf("Tokens: %s\n", tokens)
+	mod, err := parser.Module(tokens)
+	if err != nil {
+		fmt.Printf("Parse error: %s\n", err)
+		return
+	}
+	fmt.Println(mod)
 }

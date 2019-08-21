@@ -108,16 +108,8 @@ func (lex *lexer) scanIdentifier() Token {
 		return lex.makeToken(Result)
 	case "exit":
 		return lex.makeToken(Exit)
-	case "string":
-		return lex.makeToken(String)
-	case "integer":
-		return lex.makeToken(Integer)
-	case "real":
-		return lex.makeToken(Real)
-	case "boolean":
-		return lex.makeToken(Boolean)
-	case "character":
-		return lex.makeToken(Real)
+	case "string", "integer", "real", "boolean", "character":
+		return lex.makeToken(PrimitiveType)
 	// Operators
 	case "and":
 		return lex.makeToken(LAnd)
@@ -183,6 +175,9 @@ func (lex *lexer) makeToken(kind Kind) Token {
 	token := Token{
 		Content: lex.buf.String(),
 		Kind:    kind,
+	}
+	if kind != CharacterConstant && kind != StringConstant {
+		token.Content = strings.ToLower(token.Content)
 	}
 	lex.buf.Reset()
 	return token
@@ -287,7 +282,13 @@ func Tokenize(r io.Reader) ([]Token, error) {
 		if err != nil {
 			return tokens, err
 		}
-		if t.Kind != Comment {
+		// Throw away comments, semicolons, dots and commas
+		// No need for them!
+		isJunk := t.Kind == Comment ||
+			t.Kind == SemiColon ||
+			t.Kind == Comma ||
+			t.Kind == FullStop
+		if !isJunk {
 			tokens = append(tokens, t)
 		}
 	}

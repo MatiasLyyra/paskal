@@ -45,6 +45,56 @@ pi : real;
 `,
 			expected: []lexer.Kind{lexer.EOF},
 		},
+		{
+			desc: "Function",
+			code: `
+function myLine(x: real): real;
+begin
+	myLine := 0.5 * x + 2;
+end;
+`,
+			expected: []lexer.Kind{
+				lexer.Function, lexer.Identifier, lexer.LParen, lexer.Identifier, lexer.Colon, lexer.Real, lexer.RParen, lexer.Colon, lexer.Real, lexer.SemiColon,
+				lexer.Begin,
+				lexer.Identifier, lexer.Assignment, lexer.RealConstant, lexer.Mul, lexer.Identifier, lexer.Add, lexer.IntegerConstant, lexer.SemiColon,
+				lexer.End, lexer.SemiColon,
+				lexer.EOF,
+			},
+		},
+		{
+			desc: "Procedure",
+			code: `
+procedure foo;
+var
+x : boolean;
+begin
+	x := false or true;
+	if x then begin
+			x := x and false;
+			exit;
+	end;
+	else begin
+			foo("x is x", 'f');
+	end;
+end;
+			`,
+			expected: []lexer.Kind{
+				lexer.Procedure, lexer.Identifier, lexer.SemiColon,
+				lexer.Var,
+				lexer.Identifier, lexer.Colon, lexer.Boolean, lexer.SemiColon,
+				lexer.Begin,
+				lexer.Identifier, lexer.Assignment, lexer.BooleanConstant, lexer.LOr, lexer.BooleanConstant, lexer.SemiColon,
+				lexer.If, lexer.Identifier, lexer.Then, lexer.Begin,
+				lexer.Identifier, lexer.Assignment, lexer.Identifier, lexer.LAnd, lexer.BooleanConstant, lexer.SemiColon,
+				lexer.Exit, lexer.SemiColon,
+				lexer.End, lexer.SemiColon,
+				lexer.Else, lexer.Begin,
+				lexer.Identifier, lexer.LParen, lexer.StringConstant, lexer.Comma, lexer.CharacterConstant, lexer.RParen, lexer.SemiColon,
+				lexer.End, lexer.SemiColon,
+				lexer.End, lexer.SemiColon,
+				lexer.EOF,
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

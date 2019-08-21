@@ -163,6 +163,19 @@ func (lex *lexer) scanStringConstant() (Token, error) {
 		lex.advance(true)
 	}
 	lex.advance(false)
+	return lex.makeToken(StringConstant), nil
+}
+
+func (lex *lexer) scanCharacterConstant() (Token, error) {
+	lex.advance(false)
+	for lex.current != '\'' {
+		if lex.current == '\n' {
+			return lex.makeToken(Invalid),
+				fmt.Errorf("missing '")
+		}
+		lex.advance(true)
+	}
+	lex.advance(false)
 	return lex.makeToken(CharacterConstant), nil
 }
 
@@ -252,13 +265,7 @@ func (lex *lexer) next() (Token, error) {
 		return lex.scanStringConstant()
 	}
 	if lex.current == '\'' {
-		lex.advance(false)
-		lex.advance(true)
-		if lex.current != '\'' {
-			return lex.makeToken(Invalid),
-				fmt.Errorf("expected token '")
-		}
-		lex.advance(false)
+		return lex.scanCharacterConstant()
 	}
 	return Token{},
 		fmt.Errorf("invalid token %s", lex.buf.String())

@@ -68,11 +68,115 @@ const (
 	Invalid
 )
 
+func (k Kind) String() (s string) {
+	switch k {
+	case Program:
+		s = "program"
+	case Uses:
+		s = "uses"
+	case Const:
+		s = "const"
+	case Var:
+		s = "var"
+	case Procedure:
+		s = "procedure"
+	case Function:
+		s = "function"
+	case Begin:
+		s = "begin"
+	case End:
+		s = "end"
+	case If:
+		s = "if"
+	case Then:
+		s = "then"
+	case Else:
+		s = "else"
+	case Goto:
+		s = "goto"
+	case Result:
+		s = "result"
+	case Exit:
+		s = "exit"
+	case String:
+		s = "string"
+	case StringConstant:
+		s = "string value"
+	case Integer:
+		s = "integer"
+	case IntegerConstant:
+		s = "integer value"
+	case Real:
+		s = "real"
+	case RealConstant:
+		s = "real value"
+	case Boolean:
+		s = "boolean"
+	case BooleanConstant:
+		s = "boolean value"
+	case Character:
+		s = "character"
+	case CharacterConstant:
+		s = "character value"
+	case Identifier:
+		s = "identifier"
+	case Mul:
+		s = "*"
+	case Div:
+		s = "/"
+	case Mod:
+		s = "%"
+	case Add:
+		s = "+"
+	case Sub:
+		s = "-"
+	case Or:
+		s = "|"
+	case And:
+		s = "&"
+	case Not:
+		s = "~"
+	case LOr:
+		s = "or"
+	case LAnd:
+		s = "and"
+	case LNot:
+		s = "not"
+	case Eq:
+		s = "is"
+	case Assignment:
+		s = ":="
+	case LParen:
+		s = "("
+	case RParen:
+		s = ")"
+	case SemiColon:
+		s = ";"
+	case FullStop:
+		s = "."
+	case Colon:
+		s = ":"
+	case Comma:
+		s = ","
+	case EOF:
+		s = "EOF"
+	case Comment:
+		s = "comment"
+	case Invalid:
+		s = "invalid"
+	}
+	return
+}
+
 type Token struct {
 	Kind    Kind
 	Content string
 }
 
 func (t Token) String() string {
+	kindStr := t.Kind.String()
+	if kindStr == t.Content {
+		return fmt.Sprintf("%s", t.Content)
+	}
 	return fmt.Sprintf("(%s %s)", t.Kind, t.Content)
 }

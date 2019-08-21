@@ -86,7 +86,7 @@ func (lex *lexer) scanIdentifier() Token {
 		return lex.makeToken(Uses)
 	case "const":
 		return lex.makeToken(Const)
-	case "Var":
+	case "var":
 		return lex.makeToken(Var)
 	case "procedure":
 		return lex.makeToken(Procedure)

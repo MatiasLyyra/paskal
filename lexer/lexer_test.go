@@ -30,6 +30,21 @@ pi : real;
 				lexer.EOF,
 			},
 		},
+		{
+			desc: "Comments are ignored",
+			code: `// program foobar;
+{
+uses foo, bar;
+var
+val : integer;
+pi : real;
+}
+{* integer *}
+{*program*}
+// {*Test*} uses program
+`,
+			expected: []lexer.Kind{lexer.EOF},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
@@ -38,7 +53,7 @@ pi : real;
 				t.Errorf("unexpected error: %s", err)
 			}
 			if len(tC.expected) != len(tokens) {
-				t.Errorf("expected %d tokens got %d", len(tC.expected), len(tokens))
+				t.Fatalf("expected %d tokens got %d", len(tC.expected), len(tokens))
 			}
 			for i, token := range tokens {
 				if token.Kind != tC.expected[i] {

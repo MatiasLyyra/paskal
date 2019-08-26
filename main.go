@@ -4,19 +4,26 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/MatiasLyyra/paskal/ast"
 	"github.com/MatiasLyyra/paskal/lexer"
 	"github.com/MatiasLyyra/paskal/parser"
+	"github.com/shurcooL/go-goon"
 )
 
 var code = `
 program main
 var
-foo, bar : integer
-const PI : REAL
+PI : Integer
 
-procedure baz(a b z: integer d : boolean pi : real);
-var
-x : boolean;
+function test : integer
+BEGIN
+	PI := 123
+	test := ~1
+END
+
+BEGIN
+	test
+END
 `
 
 func main() {
@@ -33,5 +40,15 @@ func execute(code string) {
 		fmt.Printf("Parse error: %s\n", err)
 		return
 	}
-	fmt.Println(mod)
+	ctx := ast.NewContext()
+	goon.Dump(mod.Compile(ctx, true))
+	ctx.Module.Dump()
+	// engine, err := llvm.NewExecutionEngine(ctx.Module)
+	// if err != nil {
+	// 	fmt.Println(err.Error())
+	// }
+
+	// // run the function!
+	// funcResult := engine.RunFunction(ctx.Module.NamedFunction("test"), []llvm.GenericValue{})
+	// fmt.Printf("%f\n", funcResult.Float(llvm.FloatType()))
 }

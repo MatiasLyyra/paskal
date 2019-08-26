@@ -1,2 +1,6 @@
-github.com/MatiasLyyra/JabaScript v0.4.0 h1:b93cHDCeoWVApeB4bkr5Y/obhT1VAg6nYNHBLXqfvmI=
-github.com/MatiasLyyra/JabaScript v0.4.0/go.mod h1:QS7YgWFoJyGiueSat2cxP/FL8Qn2x1uvRlwAKw68hfc=
+github.com/go-llvm/llvm v0.0.0-20141101215015-c8914dc52445 h1:NWE9NRpheqhHQReTtgBkZXoTElvTf5T16fA58RYKMfM=
+github.com/go-llvm/llvm v0.0.0-20141101215015-c8914dc52445/go.mod h1:ev4u4nD7KnG/bfx3L6WwAWQdi+qmEHTemR7V7CUOZq4=
+github.com/shurcooL/go v0.0.0-20190704215121-7189cc372560 h1:SpaoQDTgpo2YZkvmr2mtgloFFfPTjtLMlZkQtNAPQik=
+github.com/shurcooL/go v0.0.0-20190704215121-7189cc372560/go.mod h1:TDJrrUr11Vxrven61rcy3hJMUqaf/CLWYhHNPmT14Lk=
+github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041 h1:llrF3Fs4018ePo4+G/HV/uQUqEI1HMDjCeOf2V6puPc=
+github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041/go.mod h1:N5mDOmsrJOB+vfqUK+7DmDyjhSLIIBnXo9lvZJj3MWQ=

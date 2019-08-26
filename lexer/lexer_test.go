@@ -69,7 +69,7 @@ var
 x : boolean;
 begin
 	x := false or true;
-	if x then begin
+	if x is x then begin
 			x := x and false;
 			exit;
 	end;
@@ -84,7 +84,7 @@ end;
 				lexer.Identifier, lexer.Colon, lexer.PrimitiveType,
 				lexer.Begin,
 				lexer.Identifier, lexer.Assignment, lexer.BooleanConstant, lexer.LOr, lexer.BooleanConstant,
-				lexer.If, lexer.Identifier, lexer.Then, lexer.Begin,
+				lexer.If, lexer.Identifier, lexer.Eq, lexer.Identifier, lexer.Then, lexer.Begin,
 				lexer.Identifier, lexer.Assignment, lexer.Identifier, lexer.LAnd, lexer.BooleanConstant,
 				lexer.Exit,
 				lexer.End,

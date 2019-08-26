@@ -1,6 +1,10 @@
 package ast
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/go-llvm/llvm"
+)
 
 type VariableType int
 
@@ -13,6 +17,25 @@ const (
 	UserDefined
 	Void
 )
+
+func (vt VariableType) LLVMType() llvm.Type {
+	switch vt {
+	case Integer:
+		return llvm.Int32Type()
+	case Boolean:
+		return llvm.Int1Type()
+	case Real:
+		return llvm.FloatType()
+	case Void:
+		return llvm.VoidType()
+	case Character:
+		return llvm.Int8Type()
+	case String:
+		return llvm.PointerType(llvm.Int8Type(), 0)
+	default:
+		panic("Invalid type or not currently implemented")
+	}
+}
 
 type Variable struct {
 	Name    string
@@ -43,8 +66,13 @@ type Identifier struct {
 	Type VariableType
 }
 
+type Node interface {
+	Codegen(ctx *Context) (llvm.Value, error)
+}
+
 type Module struct {
 	Name        string
+	Main        Node
 	vars        []Variable
 	consts      []Variable
 	funcs       []*Function
@@ -120,6 +148,7 @@ type Function struct {
 	params      []Variable
 	varLookup   map[string]empty
 	paramLookup map[string]empty
+	Body        Node
 }
 
 func NewFunction(name string, hasReturn bool) *Function {
@@ -131,6 +160,11 @@ func NewFunction(name string, hasReturn bool) *Function {
 	}
 }
 
+type FunctionCall struct {
+	Name string
+	Args []Node
+}
+
 func (f *Function) NameExists(name string) bool {
 	_, foundVar := f.varLookup[name]
 	_, foundParam := f.paramLookup[name]
@@ -140,6 +174,7 @@ func (f *Function) NameExists(name string) bool {
 	}
 	return foundVar || foundParam || foundReturnVar
 }
+
 func (f *Function) AddVar(name, varType string) error {
 	if f.NameExists(name) {
 		return fmt.Errorf("variable or constant with name %s is already defined", name)
@@ -152,6 +187,10 @@ func (f *Function) AddVar(name, varType string) error {
 	)
 	f.varLookup[name] = empty{}
 	return nil
+}
+
+func (f *Function) SetReturn(retType string) {
+	f.Return = stringToVariableType(retType)
 }
 
 func (f *Function) AddParam(name, paramType string) error {
@@ -171,3 +210,35 @@ func (f *Function) AddParam(name, paramType string) error {
 func (f *Function) AddConst(name, constType string) error {
 	return fmt.Errorf("invalid const value in function / procedure")
 }
+
+type Block struct {
+	Statements []Node
+}
+
+type IfStatement struct {
+	Condition  Node
+	TrueBlock  Node
+	FalseBlock Node
+}
+
+type BinaryExpression struct {
+	Op  string
+	LHS Node
+	RHS Node
+}
+
+type UnaryExpression struct {
+	Op    string
+	Value Node
+}
+
+type ParenExpression struct {
+	Value Node
+}
+
+type IntegerExpression int
+type RealExpression float32
+type StringExpression string
+type BooleanExpression bool
+type CharacterExpression rune
+type IdentifierExpression string

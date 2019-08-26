@@ -36,22 +36,22 @@ const (
 	BooleanConstant
 	CharacterConstant
 	Identifier
-	// Operators
+	// // Operators
 	Mul
 	Div
 	Mod
 	Add
 	Sub
-	// Bonary operators
+	// // Binary operators
 	Or
 	And
 	Not
-	// Logical operators
+	// // Logical operators
 	LOr
 	LAnd
 	LNot
 	Eq
-	// Misc
+	Misc
 	Assignment
 	LParen
 	RParen

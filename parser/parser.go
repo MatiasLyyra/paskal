@@ -74,7 +74,7 @@ func (p *parser) functionSection(module *ast.Module) error {
 			}
 			function.SetReturn(p.consume().Content)
 		} else {
-			function.Return = ast.Void
+			function.SetReturn("void")
 		}
 		err = p.variableDeclarations(function)
 		if err != nil {
@@ -83,9 +83,6 @@ func (p *parser) functionSection(module *ast.Module) error {
 		body, err := p.blockStatement()
 		if err != nil {
 			return err
-		}
-		if body == nil {
-			return fmt.Errorf("empty function body on function %s", function.Name)
 		}
 		function.Body = body
 		err = module.AddFunc(function)
@@ -96,28 +93,27 @@ func (p *parser) functionSection(module *ast.Module) error {
 	return nil
 }
 
-func (p *parser) blockStatement() (ast.Node, error) {
+func (p *parser) blockStatement() (ast.Block, error) {
 	_, blockStartFound := p.consumeIfAccept(lexer.Begin)
-	var value ast.Node
+	block := ast.Block{}
 	if blockStartFound {
-		block := &ast.Block{}
 		for !p.accept(lexer.End) {
 			stmt, err := p.controlStatement()
 			if err != nil {
-				return nil, err
+				return block, err
 			}
 			block.Statements = append(block.Statements, stmt)
 		}
 		p.consume()
-		value = block
 	} else {
 		var err error
-		value, err = p.Expression()
+		value, err := p.Expression()
 		if err != nil {
-			return nil, err
+			return block, err
 		}
+		block.Statements = append(block.Statements, value)
 	}
-	return value, nil
+	return block, nil
 }
 
 func (p *parser) controlStatement() (ast.Node, error) {
@@ -129,7 +125,7 @@ func (p *parser) controlStatement() (ast.Node, error) {
 
 func (p *parser) ifStatement() (ast.Node, error) {
 	var (
-		trueBlock  ast.Node
+		trueBlock  ast.Block
 		falseBlock ast.Node
 	)
 	_, err := p.require(lexer.If)
@@ -199,7 +195,7 @@ func (p *parser) binaryExpression(lhs ast.Node, min int) (ast.Node, error) {
 		lhs = &ast.BinaryExpression{
 			LHS: lhs,
 			RHS: rhs,
-			Op:  op.Content,
+			Op:  op.Kind,
 		}
 	}
 	return lhs, nil
@@ -227,7 +223,7 @@ func (p *parser) unaryExpression() (ast.Node, error) {
 			return nil, err
 		}
 		value = &ast.UnaryExpression{
-			Op:    unOp.Content,
+			Op:    unOp.Kind,
 			Value: value,
 		}
 	} else if p.accept(lexer.IntegerConstant) {
@@ -272,16 +268,6 @@ func (p *parser) unaryExpression() (ast.Node, error) {
 				Name: tok.Content,
 				Args: arguments,
 			}
-		}
-	} else if p.accept(unaryOps...) {
-		op := p.consume().Content
-		value, err = p.Expression()
-		if err != nil {
-			return nil, err
-		}
-		value = &ast.UnaryExpression{
-			Op:    op,
-			Value: value,
 		}
 	} else {
 		return nil, fmt.Errorf("expected value got %s", p.peek().Content)

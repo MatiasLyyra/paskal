@@ -4,21 +4,24 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/MatiasLyyra/paskal/ast"
+	"github.com/MatiasLyyra/paskal/compiler"
 	"github.com/MatiasLyyra/paskal/lexer"
 	"github.com/MatiasLyyra/paskal/parser"
-	"github.com/shurcooL/go-goon"
 )
 
 var code = `
 program main
 var
-PI : Integer
+PI : InTEger
+isPaskal : Boolean
 
-function test : integer
+function factorial(x : integer) : integer
 BEGIN
-	PI := 123
-	test := ~1
+	if x is 0 then begin
+		factorial := 0
+	end else begin
+		factorial := x * factorial(x - 1)
+	end
 END
 
 BEGIN
@@ -40,9 +43,15 @@ func execute(code string) {
 		fmt.Printf("Parse error: %s\n", err)
 		return
 	}
-	ctx := ast.NewContext()
-	goon.Dump(mod.Compile(ctx, true))
-	ctx.Module.Dump()
+	c := compiler.NewCompiler(mod, true)
+	err = c.Compile()
+	if err != nil {
+		fmt.Printf("Compilation error: %s\n", err)
+	}
+	c.Module.Dump()
+	// ctx := ast.NewContext()
+	// goon.Dump(mod.Compile(ctx, true))
+	// ctx.Module.Dump()
 	// engine, err := llvm.NewExecutionEngine(ctx.Module)
 	// if err != nil {
 	// 	fmt.Println(err.Error())

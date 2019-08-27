@@ -27,8 +27,8 @@ type Module struct {
 
 type VarContainer interface {
 	NameExists(name string) bool
-	AddVar(name, varType string) error
-	AddConst(name, constType string) error
+	AddVar(name string, varType types.Type) error
+	AddConst(name string, constType types.Type) error
 }
 
 func NewModule(name string) *Module {
@@ -53,19 +53,19 @@ func (m *Module) AddFunc(function *Function) error {
 	m.funcLookup[function.Name] = empty{}
 	return nil
 }
-func (m *Module) AddVar(name, varType string) error {
+func (m *Module) AddVar(name string, varType types.Type) error {
 	if m.NameExists(name) {
 		return fmt.Errorf("variable or constant with name %s is already defined", name)
 	}
-	m.Vars = append(m.Vars, types.NewVariable(name, types.BasicTypeFromString(varType)))
+	m.Vars = append(m.Vars, types.NewVariable(name, varType))
 	m.varLookup[name] = empty{}
 	return nil
 }
-func (m *Module) AddConst(name, constType string) error {
+func (m *Module) AddConst(name string, constType types.Type) error {
 	if m.NameExists(name) {
 		return fmt.Errorf("variable or constant with name %s is already defined", name)
 	}
-	m.Consts = append(m.Consts, types.NewConst(name, types.BasicTypeFromString(constType)))
+	m.Consts = append(m.Consts, types.NewConst(name, constType))
 	m.constLookup[name] = empty{}
 	return nil
 }
@@ -105,29 +105,29 @@ func (f *Function) NameExists(name string) bool {
 	return foundVar || foundParam || foundReturnVar
 }
 
-func (f *Function) AddVar(name, varType string) error {
+func (f *Function) AddVar(name string, varType types.Type) error {
 	if f.NameExists(name) {
 		return fmt.Errorf("variable or constant with name %s is already defined", name)
 	}
-	f.Vars = append(f.Vars, types.NewVariable(name, types.BasicTypeFromString(varType)))
+	f.Vars = append(f.Vars, types.NewVariable(name, varType))
 	f.varLookup[name] = empty{}
 	return nil
 }
 
-func (f *Function) SetReturn(retType string) {
-	f.Return = types.BasicTypeFromString(retType)
+func (f *Function) SetReturn(retType types.Type) {
+	f.Return = retType
 }
 
-func (f *Function) AddParam(name, paramType string) error {
+func (f *Function) AddParam(name string, paramType types.Type) error {
 	if f.NameExists(name) {
 		return fmt.Errorf("variable or constant with name %s is already defined", name)
 	}
-	f.Params = append(f.Params, types.NewVariable(name, types.BasicTypeFromString(paramType)))
+	f.Params = append(f.Params, types.NewVariable(name, paramType))
 	f.paramLookup[name] = empty{}
 	return nil
 }
 
-func (f *Function) AddConst(name, constType string) error {
+func (f *Function) AddConst(name string, constType types.Type) error {
 	return fmt.Errorf("invalid const value in function / procedure")
 }
 

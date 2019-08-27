@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/go-llvm/llvm"
+	"github.com/llvm/llvm-project/llvm/bindings/go/llvm"
 )
 
 type BasicKind int
@@ -115,10 +115,30 @@ func (c *Const) Deref() Value {
 	return NewConst(c.name, c.constType.DerefType())
 }
 
-func (t *Pointer) LLVMType() llvm.Type { return llvm.PointerType(t.Base.LLVMType(), 0) }
-func (t *Pointer) DerefType() Type     { return t.Base }
-func (t *Pointer) RefType() Type       { return &Pointer{Base: t} }
-func (t *Pointer) String() string      { return fmt.Sprintf("*%s", t.Base.String()) }
+func (t *Pointer) ChainLen() (len int) {
+	var (
+		temp = t
+		ptr  *Pointer
+		ok   bool
+	)
+	for ptr, ok = temp.Base.(*Pointer); ok; {
+		len++
+		temp, ok = ptr.Base.(*Pointer)
+		if !ok {
+			break
+		}
+	}
+	return
+}
+func (t *Pointer) LLVMType() llvm.Type {
+	// if t.ChainLen() >= 1 {
+	// 	return llvm.PointerType(llvm.Int8Type(), 0)
+	// }
+	return llvm.PointerType(t.Base.LLVMType(), 0)
+}
+func (t *Pointer) DerefType() Type { return t.Base }
+func (t *Pointer) RefType() Type   { return &Pointer{Base: t} }
+func (t *Pointer) String() string  { return fmt.Sprintf("*%s", t.Base.String()) }
 func (t *Pointer) IsA(t2 Type) bool {
 	t2Ptr, ok := t2.(*Pointer)
 	if !ok {

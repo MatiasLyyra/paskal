@@ -58,6 +58,8 @@ func (lex *lexer) isOperator() bool {
 		lex.current == ')' ||
 		lex.current == ';' ||
 		lex.current == '.' ||
+		lex.current == '^' ||
+		lex.current == '@' ||
 		lex.current == ','
 }
 
@@ -210,6 +212,10 @@ func (lex *lexer) scanSpecial() Token {
 		kind = And
 	case '~':
 		kind = Not
+	case '^':
+		kind = Deref
+	case '@':
+		kind = AddressOf
 	case ':':
 		lex.advance(true)
 		kind = Colon

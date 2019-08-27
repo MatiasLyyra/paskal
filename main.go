@@ -7,6 +7,7 @@ import (
 	"github.com/MatiasLyyra/paskal/compiler"
 	"github.com/MatiasLyyra/paskal/lexer"
 	"github.com/MatiasLyyra/paskal/parser"
+	"github.com/llvm/llvm-project/llvm/bindings/go/llvm"
 )
 
 var code = `
@@ -15,12 +16,12 @@ var
 PI : InTEger
 isPaskal : Boolean
 
-function factorial(x : integer) : integer
+function factorial : integer
 BEGIN
-	if x is 0 then begin
-		factorial := 0
+	if true then begin
+		factorial := 1
 	end else begin
-		factorial := x * factorial(x - 1)
+		factorial := 1
 	end
 END
 
@@ -43,21 +44,19 @@ func execute(code string) {
 		fmt.Printf("Parse error: %s\n", err)
 		return
 	}
-	c := compiler.NewCompiler(mod, true)
+	c := compiler.NewCompiler(mod, false)
 	err = c.Compile()
 	if err != nil {
 		fmt.Printf("Compilation error: %s\n", err)
 	}
+	llvm.NewTargetData()
 	c.Module.Dump()
-	// ctx := ast.NewContext()
-	// goon.Dump(mod.Compile(ctx, true))
-	// ctx.Module.Dump()
-	// engine, err := llvm.NewExecutionEngine(ctx.Module)
-	// if err != nil {
-	// 	fmt.Println(err.Error())
-	// }
+	engine, err := llvm.NewInterpreter(c.Module)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 
-	// // run the function!
-	// funcResult := engine.RunFunction(ctx.Module.NamedFunction("test"), []llvm.GenericValue{})
-	// fmt.Printf("%f\n", funcResult.Float(llvm.FloatType()))
+	// run the function!
+	funcResult := engine.RunFunction(c.Module.NamedFunction("factorial"), []llvm.GenericValue{})
+	fmt.Printf("%d\n", int32(funcResult.Int(true)))
 }

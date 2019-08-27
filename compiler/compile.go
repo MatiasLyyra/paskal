@@ -7,7 +7,7 @@ import (
 	"github.com/MatiasLyyra/paskal/ast"
 	"github.com/MatiasLyyra/paskal/lexer"
 	"github.com/MatiasLyyra/paskal/types"
-	"github.com/go-llvm/llvm"
+	"github.com/llvm/llvm-project/llvm/bindings/go/llvm"
 )
 
 type PaskalValue struct {
@@ -213,6 +213,8 @@ func (c *Compiler) compileExpr(node ast.Node) (PaskalValue, error) {
 	switch expr := node.(type) {
 	case *ast.BinaryExpression:
 		return c.compileBinaryExpr(expr.LHS, expr.RHS, expr.Op)
+	case *ast.UnaryExpression:
+		return c.compileUnaryExpr(expr.Value, expr.Op)
 	case *ast.FunctionCall:
 		return c.compileFunctionCall(expr)
 	case ast.IdentifierExpression:
@@ -221,6 +223,8 @@ func (c *Compiler) compileExpr(node ast.Node) (PaskalValue, error) {
 		return c.compileIntegerExpr(expr)
 	case ast.BooleanExpression:
 		return c.compileBooleanExpr(expr)
+	case ast.CharacterExpression:
+		return c.compileCharacterExpr(expr)
 	default:
 		panic(fmt.Sprintf("invalid expression %s", reflect.ValueOf(expr)))
 	}
@@ -272,13 +276,27 @@ func (c *Compiler) compileBinaryExpr(lhs, rhs ast.Node, op lexer.Kind) (PaskalVa
 	lhsType := lhsVal.TypeValue.Type()
 	rhsType := rhsVal.TypeValue.Type()
 	if op == lexer.Assignment {
-		if lhsType.DerefType() == nil {
-			return PaskalValue{}, fmt.Errorf("cannot assign to rvalue")
+		// if lhsType.DerefType() == nil {
+		// 	return PaskalValue{}, fmt.Errorf("cannot assign to rvalue")
+		// }
+		// var derefRHS bool
+		// if rhsType.DerefType() != nil {
+		// 	lhsPtr := rhsType.(*types.Pointer)
+		// 	rhsPtr := rhsType.(*types.Pointer)
+		// 	diff := lhsPtr.ChainLen() - rhsPtr.ChainLen()
+		// 	if diff == 0 {
+		// 		derefRHS = true
+		// 	}
+		// }
+		// if derefRHS {
+		// 	rhsVal = c.deref(rhsVal)
+		// 	rhsType = rhsVal.TypeValue.Type()
+		// }
+		if !lhsType.IsA(rhsType) {
+			return PaskalValue{}, fmt.Errorf("cannot assign %s to %s", rhsType, lhsType.DerefType())
 		}
-		if !lhsType.DerefType().IsA(rhsType) {
-			return PaskalValue{}, fmt.Errorf("cannot assign %s to %s", lhsType.DerefType(), rhsType)
-		}
-		c.Builder.CreateStore(rhsVal.Value, lhsVal.Value)
+		val, _ := c.variableLookup(lhsVal.TypeValue.Name())
+		c.Builder.CreateStore(rhsVal.Value, val.Value)
 		return rhsVal, nil
 	}
 	lhsVal = c.deref(lhsVal)
@@ -393,14 +411,56 @@ func (c *Compiler) compileBinaryExpr(lhs, rhs ast.Node, op lexer.Kind) (PaskalVa
 	}, nil
 }
 
-func (c *Compiler) compileIdentifierExpr(expr ast.IdentifierExpression) (PaskalValue, error) {
-	name := string(expr)
+func (c *Compiler) compileUnaryExpr(expr ast.Node, op lexer.Kind) (PaskalValue, error) {
+	unaryVal, err := c.compileExpr(expr)
+	if err != nil {
+		return PaskalValue{}, err
+	}
+
+	unaryValType := unaryVal.TypeValue.Type()
+	var opVal llvm.Value
+	switch op {
+	case lexer.Deref:
+		unaryValType = unaryValType.DerefType()
+		if unaryValType == nil {
+			return PaskalValue{}, fmt.Errorf("cannot deref (rvalue) type %s", unaryValType)
+		}
+		if unaryValType.DerefType() == nil {
+			return PaskalValue{}, fmt.Errorf("cannot deref type %s", unaryValType)
+		}
+		opVal = c.Builder.CreateLoad(unaryVal.Value, "ptrderef")
+	case lexer.AddressOf:
+		if unaryValType.DerefType() == nil {
+			return PaskalValue{}, fmt.Errorf("cannot deref (rvalue) type %s", unaryValType)
+		}
+		// oldType := unaryValType
+		unaryValType = unaryValType.RefType()
+		opVal = c.Builder.CreatePointerCast(unaryVal.Value, unaryValType.LLVMType(), "addressof")
+		// opVal = c.Builder.CreateBitCast(unaryVal.Value, unaryValType.LLVMType(), "addressof")
+	}
+	return PaskalValue{
+		TypeValue: types.NewVariable("", unaryValType),
+		Value:     opVal,
+	}, nil
+}
+
+func (c *Compiler) variableLookup(name string) (PaskalValue, error) {
 	if val, ok := c.Vars[name]; ok {
 		return val, nil
 	} else if val, ok := c.GlobalVars[name]; ok {
 		return val, nil
 	}
 	return PaskalValue{}, fmt.Errorf("unknown identifier %s", name)
+}
+
+func (c *Compiler) compileIdentifierExpr(expr ast.IdentifierExpression) (PaskalValue, error) {
+	name := string(expr)
+	identifier, err := c.variableLookup(name)
+	if err != nil {
+		return PaskalValue{}, err
+	}
+	identifier = c.deref(identifier)
+	return identifier, nil
 }
 
 func (c *Compiler) compileIntegerExpr(expr ast.IntegerExpression) (PaskalValue, error) {
@@ -418,6 +478,15 @@ func (c *Compiler) compileBooleanExpr(expr ast.BooleanExpression) (PaskalValue, 
 	return PaskalValue{
 		TypeValue: types.NewVariable("", types.BooleanType),
 		Value:     llvm.ConstInt(types.BooleanType.LLVMType(), val, true),
+	}, nil
+}
+
+func (c *Compiler) compileCharacterExpr(expr ast.CharacterExpression) (PaskalValue, error) {
+	// Truncate chracters into a byte
+	// TODO: Should be catched earlier in the parsing
+	return PaskalValue{
+		TypeValue: types.NewVariable("", types.CharacterType),
+		Value:     llvm.ConstInt(types.CharacterType.LLVMType(), uint64(byte(expr)), true),
 	}, nil
 }
 

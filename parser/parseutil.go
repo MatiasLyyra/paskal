@@ -115,5 +115,7 @@ func init() {
 		lexer.Sub,
 		lexer.Not,
 		lexer.LNot,
+		lexer.Deref,
+		lexer.AddressOf,
 	}
 }

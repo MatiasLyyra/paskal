@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/MatiasLyyra/paskal/types"
+
 	"github.com/MatiasLyyra/paskal/ast"
 	"github.com/MatiasLyyra/paskal/lexer"
 )
@@ -69,12 +71,16 @@ func (p *parser) functionSection(module *ast.Module) error {
 			if _, err := p.require(lexer.Colon); err != nil {
 				return err
 			}
-			if !p.accept(lexer.Identifier) && !p.accept(lexer.PrimitiveType) {
-				return fmt.Errorf("function %s requires return value type", function.Name)
+			// if !p.accept(lexer.Identifier) && !p.accept(lexer.PrimitiveType) {
+			// 	return fmt.Errorf("function %s requires return value type", function.Name)
+			// }
+			retType, err := p.varType()
+			if err != nil {
+				return err
 			}
-			function.SetReturn(p.consume().Content)
+			function.SetReturn(retType)
 		} else {
-			function.SetReturn("void")
+			function.SetReturn(types.VoidType)
 		}
 		err = p.variableDeclarations(function)
 		if err != nil {
@@ -218,7 +224,7 @@ func (p *parser) unaryExpression() (ast.Node, error) {
 		}
 	} else if p.accept(unaryOps...) {
 		unOp := p.consume()
-		value, err = p.Expression()
+		value, err = p.unaryExpression()
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +319,7 @@ func (p *parser) variableDeclarations(vc ast.VarContainer) error {
 	return nil
 }
 
-func (p *parser) variableList() (ids []string, typeName string, err error) {
+func (p *parser) variableList() (ids []string, idType types.Type, err error) {
 	if p.accept(lexer.Identifier) {
 		ids = append(ids, p.consume().Content)
 		for !p.accept(lexer.Colon) {
@@ -325,11 +331,27 @@ func (p *parser) variableList() (ids []string, typeName string, err error) {
 		if _, err = p.require(lexer.Colon); err != nil {
 			return
 		}
-		if !p.accept(lexer.PrimitiveType) && !p.accept(lexer.Identifier) {
-			err = fmt.Errorf("expected type found %s", p.peek())
+		idType, err = p.varType()
+		if err != nil {
 			return
 		}
-		typeName = p.consume().Content
+	}
+	return
+}
+
+func (p *parser) varType() (idType types.Type, err error) {
+	ptrCount := 0
+	for p.accept(lexer.Deref) {
+		p.consume()
+		ptrCount++
+	}
+	if !p.accept(lexer.PrimitiveType) {
+		err = fmt.Errorf("expected type found %s", p.peek())
+		return
+	}
+	idType = types.BasicTypeFromString(p.consume().Content)
+	for i := 0; i < ptrCount; i++ {
+		idType = idType.RefType()
 	}
 	return
 }

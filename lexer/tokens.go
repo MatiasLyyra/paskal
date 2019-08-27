@@ -46,6 +46,9 @@ const (
 	Or
 	And
 	Not
+	// Memory related operators
+	Deref
+	AddressOf
 	// // Logical operators
 	LOr
 	LAnd

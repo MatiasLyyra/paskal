@@ -32,11 +32,14 @@ func Module(tokens []lexer.Token) (module *ast.Module, err error) {
 		return
 	}
 	if p.accept(lexer.Begin) {
+		mainFn := ast.NewFunction("main", false)
+		mainFn.SetReturn(types.VoidType)
 		main, err := p.blockStatement()
 		if err != nil {
 			return nil, err
 		}
-		module.Main = main
+		mainFn.Body = main
+		module.Main = mainFn
 	}
 	_, err = p.require(lexer.EOF)
 	return

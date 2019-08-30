@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/llvm/llvm-project/llvm/bindings/go/llvm"
+	"llvm.org/llvm/bindings/go/llvm"
 )
 
 type BasicKind int
@@ -13,6 +13,7 @@ const (
 	Real
 	Character
 	Boolean
+	String
 	Void
 )
 
@@ -21,6 +22,7 @@ var (
 	RealType      *BasicType
 	CharacterType *BasicType
 	BooleanType   *BasicType
+	StringType    *BasicType
 	VoidType      *BasicType
 )
 
@@ -64,6 +66,8 @@ func BasicTypeFromString(typeName string) (bt *BasicType) {
 		bt.Kind = Real
 	case "character":
 		bt.Kind = Character
+	case "string":
+		bt.Kind = String
 	default:
 		panic(fmt.Sprintf("invalid type %s", typeName))
 	}
@@ -164,10 +168,12 @@ func (t *BasicType) LLVMType() llvm.Type {
 		return llvm.Int8Type()
 	case Boolean:
 		return llvm.Int1Type()
+	case String:
+		return llvm.PointerType(llvm.Int8Type(), 0)
 	case Void:
 		return llvm.VoidType()
 	default:
-		panic(fmt.Sprintf("invalid type %s", t.Kind))
+		panic(fmt.Sprintf("invalid type %d", t.Kind))
 	}
 }
 func (t *BasicType) String() string {
@@ -180,6 +186,8 @@ func (t *BasicType) String() string {
 		return "character"
 	case Boolean:
 		return "boolean"
+	case String:
+		return "string"
 	case Void:
 		return "void"
 	default:
@@ -201,6 +209,9 @@ func init() {
 	}
 	CharacterType = &BasicType{
 		Kind: Character,
+	}
+	StringType = &BasicType{
+		Kind: String,
 	}
 	VoidType = &BasicType{
 		Kind: Void,

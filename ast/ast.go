@@ -16,7 +16,7 @@ type Node interface {
 
 type Module struct {
 	Name        string
-	Main        Node
+	Main        *Function
 	Vars        []types.Value
 	Consts      []types.Value
 	Funcs       []*Function

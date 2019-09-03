@@ -16,7 +16,7 @@ begin
 end
 ```
 
-Compiling the above paskal program `paskal hello.pas hello.o`. Clang can be then used to link the program to make an executable e.g. `clang hello.o -o hello`.
+Program above can be compiled with `paskal hello.pas hello.o`. Clang can be then used to link the program to make an executable e.g. `clang hello.o -o hello`.
 
 ## Currently supported features
 
@@ -27,9 +27,9 @@ Compiling the above paskal program `paskal hello.pas hello.o`. Clang can be then
   - Character
   - Static arrays
   - String (mostly supported)
-  - Pointers to above mentioned types
+  - Pointers to types mentioned above
 
-### If statements
+### Example programs
 
 ```
 program main
@@ -46,8 +46,6 @@ begin
   end
 end
 ```
-
-### Arrays
 
 ```
 program main
@@ -66,4 +64,5 @@ end
 
 - Support for structs
 - Support for dynamically allocated memory
+- Dynamic arrays
 - Standard library like functions

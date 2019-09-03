@@ -28,6 +28,8 @@ const (
 	Goto
 	Result
 	Exit
+	Array
+	Of
 	// Types
 	PrimitiveType
 	StringConstant
@@ -54,10 +56,17 @@ const (
 	LAnd
 	LNot
 	Eq
+	Lt
+	Gt
+	Lte
+	Gte
+	Ne
 	Misc
 	Assignment
 	LParen
 	RParen
+	LBracket
+	RBracket
 	SemiColon
 	FullStop
 	Colon

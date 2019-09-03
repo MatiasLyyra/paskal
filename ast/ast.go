@@ -156,6 +156,19 @@ type ParenExpression struct {
 	Value Node
 }
 
+type Subscript struct {
+	Value    Node
+	Indexing []Node
+}
+
+type ArrayAccess struct {
+	Index Node
+}
+
+type StructAccess struct {
+	Field string
+}
+
 type IntegerExpression int
 type RealExpression float32
 type StringExpression string

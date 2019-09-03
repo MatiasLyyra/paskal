@@ -73,21 +73,36 @@ var unaryOps []lexer.Kind
 func init() {
 	opPrecedence = map[lexer.Kind]precedence{
 		lexer.Mul: {
-			priority: 7,
+			priority: 8,
 		},
 		lexer.Div: {
-			priority: 7,
+			priority: 8,
 		},
 		lexer.Mod: {
-			priority: 7,
+			priority: 8,
 		},
 		lexer.Add: {
-			priority: 6,
+			priority: 7,
 		},
 		lexer.Sub: {
+			priority: 7,
+		},
+		lexer.Lt: {
+			priority: 6,
+		},
+		lexer.Lte: {
+			priority: 6,
+		},
+		lexer.Gt: {
+			priority: 6,
+		},
+		lexer.Gte: {
 			priority: 6,
 		},
 		lexer.Eq: {
+			priority: 5,
+		},
+		lexer.Ne: {
 			priority: 5,
 		},
 		lexer.And: {

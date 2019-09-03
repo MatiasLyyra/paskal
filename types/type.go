@@ -34,6 +34,11 @@ type BasicType struct {
 	Kind BasicKind
 }
 
+type Array struct {
+	Base         Type
+	ElementCount int
+}
+
 type Type interface {
 	LLVMType() llvm.Type
 	DerefType() Type
@@ -105,6 +110,7 @@ func (v *Variable) Deref() Value {
 	}
 	return NewVariable(v.name, v.varType.DerefType())
 }
+func (v *Variable) String() string { return fmt.Sprintf("%s", v.varType) }
 
 func (c *Const) Type() Type    { return c.constType }
 func (c *Const) Name() string  { return c.name }
@@ -119,25 +125,7 @@ func (c *Const) Deref() Value {
 	return NewConst(c.name, c.constType.DerefType())
 }
 
-func (t *Pointer) ChainLen() (len int) {
-	var (
-		temp = t
-		ptr  *Pointer
-		ok   bool
-	)
-	for ptr, ok = temp.Base.(*Pointer); ok; {
-		len++
-		temp, ok = ptr.Base.(*Pointer)
-		if !ok {
-			break
-		}
-	}
-	return
-}
 func (t *Pointer) LLVMType() llvm.Type {
-	// if t.ChainLen() >= 1 {
-	// 	return llvm.PointerType(llvm.Int8Type(), 0)
-	// }
 	return llvm.PointerType(t.Base.LLVMType(), 0)
 }
 func (t *Pointer) DerefType() Type { return t.Base }
@@ -152,6 +140,9 @@ func (t *Pointer) IsA(t2 Type) bool {
 }
 
 func (t *BasicType) IsA(t2 Type) bool {
+	if t.Kind == String && t2.IsA(&Pointer{Base: CharacterType}) {
+		return true
+	}
 	t2Bt, ok := t2.(*BasicType)
 	if !ok {
 		return false
@@ -196,6 +187,22 @@ func (t *BasicType) String() string {
 }
 func (t *BasicType) DerefType() Type { return nil }
 func (t *BasicType) RefType() Type   { return &Pointer{Base: t} }
+
+func (t *Array) IsA(t2 Type) bool {
+	t2Arr, ok := t2.(*Array)
+	if !ok {
+		return false
+	}
+	return t.ElementCount == t2Arr.ElementCount && t.Base.IsA(t2Arr.Base)
+}
+
+func (t *Array) LLVMType() llvm.Type {
+	return llvm.ArrayType(t.Base.LLVMType(), t.ElementCount)
+}
+
+func (t *Array) DerefType() Type { return nil }
+func (t *Array) RefType() Type   { return &Pointer{Base: t} }
+func (t *Array) String() string  { return fmt.Sprintf("[array %dx%s]", t.ElementCount, t.Base) }
 
 func init() {
 	IntegerType = &BasicType{

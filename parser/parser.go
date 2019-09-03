@@ -278,6 +278,35 @@ func (p *parser) unaryExpression() (ast.Node, error) {
 				Args: arguments,
 			}
 		}
+	}
+
+	if value != nil {
+		if p.accept(lexer.LBracket) || p.accept(lexer.FullStop) {
+			subscriptExpr := &ast.Subscript{
+				Value: value,
+			}
+			for p.accept(lexer.LBracket) || p.accept(lexer.FullStop) {
+				tok := p.consume()
+				var subscript ast.Node
+				if tok.Kind == lexer.FullStop {
+					subscript, err = p.require(lexer.Identifier)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					subscript, err = p.Expression()
+					if err != nil {
+						return nil, err
+					}
+					_, err = p.require(lexer.RBracket)
+					if err != nil {
+						return nil, err
+					}
+				}
+				subscriptExpr.Indexing = append(subscriptExpr.Indexing, subscript)
+			}
+			value = subscriptExpr
+		}
 	} else {
 		return nil, fmt.Errorf("expected value got %s", p.peek().Content)
 	}
@@ -347,6 +376,36 @@ func (p *parser) varType() (idType types.Type, err error) {
 	for p.accept(lexer.Deref) {
 		p.consume()
 		ptrCount++
+	}
+	if p.accept(lexer.Array) {
+		p.consume()
+		_, err = p.require(lexer.LBracket)
+		if err != nil {
+			return
+		}
+		var (
+			elementCount lexer.Token
+			elementType  lexer.Token
+		)
+		elementCount, err = p.require(lexer.IntegerConstant)
+		_, err = p.require(lexer.RBracket)
+		if err != nil {
+			return
+		}
+		_, err = p.require(lexer.Of)
+		if err != nil {
+			return
+		}
+		elementType, err = p.require(lexer.PrimitiveType)
+		if err != nil {
+			return
+		}
+		cnt, _ := strconv.ParseInt(elementCount.Content, 10, 32)
+		idType = &types.Array{
+			Base:         types.BasicTypeFromString(elementType.Content),
+			ElementCount: int(cnt),
+		}
+		return
 	}
 	if !p.accept(lexer.PrimitiveType) {
 		err = fmt.Errorf("expected type found %s", p.peek())

@@ -56,9 +56,13 @@ func (lex *lexer) isOperator() bool {
 		lex.current == '=' ||
 		lex.current == '(' ||
 		lex.current == ')' ||
+		lex.current == '[' ||
+		lex.current == ']' ||
 		lex.current == ';' ||
 		lex.current == '.' ||
 		lex.current == '^' ||
+		lex.current == '<' ||
+		lex.current == '>' ||
 		lex.current == '@' ||
 		lex.current == ','
 }
@@ -122,6 +126,10 @@ func (lex *lexer) scanIdentifier() Token {
 	case "is":
 		return lex.makeToken(Eq)
 	// Types
+	case "array":
+		return lex.makeToken(Array)
+	case "of":
+		return lex.makeToken(Of)
 	case "true", "false":
 		return lex.makeToken(BooleanConstant)
 	}
@@ -210,6 +218,30 @@ func (lex *lexer) scanSpecial() Token {
 		kind = Or
 	case '&':
 		kind = And
+	case '=':
+		kind = Assignment
+		if lex.current == '=' {
+			kind = Eq
+			lex.advance(true)
+		}
+	case '!':
+		kind = LNot
+		if lex.current == '=' {
+			kind = Ne
+			lex.advance(true)
+		}
+	case '<':
+		kind = Lt
+		if lex.current == '=' {
+			kind = Lte
+			lex.advance(true)
+		}
+	case '>':
+		kind = Gt
+		if lex.current == '=' {
+			kind = Gte
+			lex.advance(true)
+		}
 	case '~':
 		kind = Not
 	case '^':
@@ -224,12 +256,14 @@ func (lex *lexer) scanSpecial() Token {
 			kind = Assignment
 			lex.advance(true)
 		}
-	case '=':
-		kind = Eq
 	case '(':
 		kind = LParen
 	case ')':
 		kind = RParen
+	case '[':
+		kind = LBracket
+	case ']':
+		kind = RBracket
 	case ';':
 		kind = SemiColon
 	case '.':
@@ -288,12 +322,11 @@ func Tokenize(r io.Reader) ([]Token, error) {
 		if err != nil {
 			return tokens, err
 		}
-		// Throw away comments, semicolons, dots and commas
+		// Throw away comments, semicolons and commas
 		// No need for them!
 		isJunk := t.Kind == Comment ||
 			t.Kind == SemiColon ||
-			t.Kind == Comma ||
-			t.Kind == FullStop
+			t.Kind == Comma
 		if !isJunk {
 			tokens = append(tokens, t)
 		}

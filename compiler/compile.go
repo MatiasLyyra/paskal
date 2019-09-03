@@ -83,7 +83,7 @@ func NewCompiler(module *ast.Module, optLevel, sizeLevel int) *Compiler {
 func (c *Compiler) Compile() error {
 	for _, globalVar := range c.paskalModule.Vars {
 		val := llvm.AddGlobal(c.Module, globalVar.Type().LLVMType(), globalVar.Name())
-		val.SetInitializer(llvm.Undef(globalVar.Type().LLVMType()))
+		val.SetInitializer(llvm.ConstNull(globalVar.Type().LLVMType()))
 		c.globalVars[globalVar.Name()] = PaskalValue{
 			TypeValue: globalVar.Ref(),
 			Value:     val,
@@ -176,10 +176,12 @@ func (c *Compiler) compileFunctionBody(f PaskalFunction) error {
 	}()
 	for i, paramValue := range f.FunctionValue.Params() {
 		paramVar := f.Function.Params[i]
-		paramValue.SetName(paramVar.Name())
+		paramValue.SetName(paramVar.Name() + "_arg")
+		paramValueLocal := c.builder.CreateAlloca(paramVar.Type().LLVMType(), paramVar.Name())
+		c.builder.CreateStore(paramValue, paramValueLocal)
 		c.vars[paramVar.Name()] = PaskalValue{
-			TypeValue: paramVar,
-			Value:     paramValue,
+			TypeValue: paramVar.Ref(),
+			Value:     paramValueLocal,
 		}
 	}
 	for _, localVar := range f.Function.Vars {
@@ -228,13 +230,13 @@ func (c *Compiler) compileNode(node ast.Node) (err error) {
 	case *ast.IfStatement:
 		err = c.compileIfStmt(stmt)
 	default:
-		_, err = c.compileExpr(stmt)
+		_, err = c.compileExpr(stmt, false)
 	}
 	return
 }
 
 func (c *Compiler) compileIfStmt(ifStmt *ast.IfStatement) error {
-	condVal, err := c.compileExpr(ifStmt.Condition)
+	condVal, err := c.compileExpr(ifStmt.Condition, false)
 	parent := c.builder.GetInsertBlock().Parent()
 	if err != nil {
 		return err
@@ -269,29 +271,39 @@ func (c *Compiler) compileIfStmt(ifStmt *ast.IfStatement) error {
 	return nil
 }
 
-func (c *Compiler) compileExpr(node ast.Node) (PaskalValue, error) {
+func (c *Compiler) compileExpr(node ast.Node, deref bool) (val PaskalValue, err error) {
+	derefOverride := false
 	switch expr := node.(type) {
 	case *ast.BinaryExpression:
-		return c.compileBinaryExpr(expr.LHS, expr.RHS, expr.Op)
+		val, err = c.compileBinaryExpr(expr.LHS, expr.RHS, expr.Op)
 	case *ast.UnaryExpression:
-		return c.compileUnaryExpr(expr.Value, expr.Op)
+		val, err = c.compileUnaryExpr(expr.Value, expr.Op)
+		if expr.Op == lexer.AddressOf {
+			derefOverride = true
+		}
 	case *ast.FunctionCall:
-		return c.compileFunctionCall(expr)
+		val, err = c.compileFunctionCall(expr)
+	case *ast.Subscript:
+		val, err = c.compileSubscriptExpr(expr)
 	case ast.IdentifierExpression:
-		return c.compileIdentifierExpr(expr)
+		val, err = c.compileIdentifierExpr(expr)
 	case ast.IntegerExpression:
-		return c.compileIntegerExpr(expr)
+		val, err = c.compileIntegerExpr(expr)
 	case ast.BooleanExpression:
-		return c.compileBooleanExpr(expr)
+		val, err = c.compileBooleanExpr(expr)
 	case ast.CharacterExpression:
-		return c.compileCharacterExpr(expr)
+		val, err = c.compileCharacterExpr(expr)
 	case ast.RealExpression:
-		return c.compileRealExpr(expr)
+		val, err = c.compileRealExpr(expr)
 	case ast.StringExpression:
-		return c.compileStringExpr(expr)
+		val, err = c.compileStringExpr(expr)
 	default:
 		panic(fmt.Sprintf("invalid expression %s", reflect.ValueOf(expr)))
 	}
+	if val.TypeValue != nil && deref && !derefOverride {
+		val = c.deref(val)
+	}
+	return
 }
 func (c *Compiler) compileFunctionCall(fnCall *ast.FunctionCall) (PaskalValue, error) {
 	var args []llvm.Value
@@ -305,7 +317,7 @@ func (c *Compiler) compileFunctionCall(fnCall *ast.FunctionCall) (PaskalValue, e
 		return PaskalValue{}, fmt.Errorf("incorrect amount of arguments to function %s, expected: %d got: %d", fnCall.Name, fnVal.Argc(), len(fnCall.Args))
 	}
 	for i, arg := range fnCall.Args {
-		argVal, err := c.compileExpr(arg)
+		argVal, err := c.compileExpr(arg, true)
 		if err != nil {
 			return PaskalValue{}, err
 		}
@@ -315,9 +327,6 @@ func (c *Compiler) compileFunctionCall(fnCall *ast.FunctionCall) (PaskalValue, e
 			if !paramValType.IsA(argValType) {
 				return PaskalValue{}, fmt.Errorf("incorrect argument type to function %s, expected: %s got %s", fnCall.Name, paramValType, argValType)
 			}
-		}
-		if argValType.IsA(types.StringType) {
-			argVal.Value = c.builder.CreateGEP(argVal.Value, []llvm.Value{llvm.ConstInt(llvm.Int32Type(), 0, true), llvm.ConstInt(llvm.Int32Type(), 0, true)}, "")
 		}
 		args = append(args, argVal.Value)
 	}
@@ -333,26 +342,54 @@ func (c *Compiler) compileFunctionCall(fnCall *ast.FunctionCall) (PaskalValue, e
 	ret.Value = val
 	return ret, nil
 }
-
-func (c *Compiler) compileBinaryExpr(lhs, rhs ast.Node, op lexer.Kind) (PaskalValue, error) {
-	lhsVal, err := c.compileExpr(lhs)
+func (c *Compiler) compileSubscriptExpr(expr *ast.Subscript) (PaskalValue, error) {
+	exprVal, err := c.compileExpr(expr.Value, false)
 	if err != nil {
 		return PaskalValue{}, err
 	}
-	rhsVal, err := c.compileExpr(rhs)
-	if err != nil {
-		return PaskalValue{}, err
+	exprValDeref := exprVal.TypeValue.Type().DerefType()
+	if exprValDeref == nil {
+		panic("non pointer indexing")
 	}
-
-	lhsType := lhsVal.TypeValue.Type()
-	rhsType := rhsVal.TypeValue.Type()
-	if op == lexer.Assignment {
-		lhsVal.Value.EraseFromParentAsInstruction()
-		lhsVal, err = c.variableLookup(lhsVal.TypeValue.Name())
+	origArray, isArr := exprValDeref.(*types.Array)
+	arr := origArray
+	if !isArr {
+		return PaskalValue{}, fmt.Errorf("cannot index non-array value of type: %s", exprVal.TypeValue.Type())
+	}
+	var gepIndexes = []llvm.Value{llvm.ConstInt(llvm.Int32Type(), 0, true)}
+	for _, indexing := range expr.Indexing {
+		indexValue, err := c.compileExpr(indexing, true)
 		if err != nil {
 			return PaskalValue{}, err
 		}
-		lhsType = lhsVal.TypeValue.Type()
+		if !indexValue.TypeValue.Type().IsA(types.IntegerType) {
+			return PaskalValue{}, fmt.Errorf("cannot index with non-integer value")
+		}
+		gepIndexes = append(gepIndexes, indexValue.Value)
+	}
+	elementPtr := c.builder.CreateGEP(exprVal.Value, gepIndexes, "gep")
+	return PaskalValue{
+		Value:     elementPtr,
+		TypeValue: types.NewVariable("", arr.Base.RefType()),
+	}, nil
+}
+func (c *Compiler) compileBinaryExpr(lhs, rhs ast.Node, op lexer.Kind) (PaskalValue, error) {
+	var (
+		lhsVal PaskalValue
+		rhsVal PaskalValue
+	)
+
+	if op == lexer.Assignment {
+		lhsVal, err := c.compileExpr(lhs, false)
+		if err != nil {
+			return PaskalValue{}, err
+		}
+		rhsVal, err = c.compileExpr(rhs, true)
+		if err != nil {
+			return PaskalValue{}, err
+		}
+		lhsType := lhsVal.TypeValue.Type()
+		rhsType := rhsVal.TypeValue.Type()
 		if lhsType.DerefType() == nil {
 			return PaskalValue{}, fmt.Errorf("cannot assign to rvalue")
 		}
@@ -362,10 +399,16 @@ func (c *Compiler) compileBinaryExpr(lhs, rhs ast.Node, op lexer.Kind) (PaskalVa
 		c.builder.CreateStore(rhsVal.Value, lhsVal.Value)
 		return rhsVal, nil
 	}
-	lhsVal = c.deref(lhsVal)
-	rhsVal = c.deref(rhsVal)
-	lhsType = lhsVal.TypeValue.Type()
-	rhsType = rhsVal.TypeValue.Type()
+	lhsVal, err := c.compileExpr(lhs, true)
+	if err != nil {
+		return PaskalValue{}, err
+	}
+	rhsVal, err = c.compileExpr(rhs, true)
+	if err != nil {
+		return PaskalValue{}, err
+	}
+	lhsType := lhsVal.TypeValue.Type()
+	rhsType := rhsVal.TypeValue.Type()
 	if !lhsType.IsA(rhsType) {
 		return PaskalValue{}, fmt.Errorf("invalid op: %s %s %s", lhsType, op, rhsType)
 	}
@@ -435,6 +478,56 @@ func (c *Compiler) compileBinaryExpr(lhs, rhs ast.Node, op lexer.Kind) (PaskalVa
 		default:
 			return PaskalValue{}, fmt.Errorf("invalid op %s for type %s", op, lhsType)
 		}
+	case lexer.Ne:
+		opType = types.BooleanType
+		switch {
+		case lhsType.IsA(types.IntegerType), lhsType.IsA(types.BooleanType):
+			opVal = c.builder.CreateICmp(llvm.IntNE, lhsVal.Value, rhsVal.Value, "ine")
+		case lhsType.IsA(types.RealType):
+			opVal = c.builder.CreateFCmp(llvm.FloatONE, lhsVal.Value, rhsVal.Value, "fne")
+		default:
+			return PaskalValue{}, fmt.Errorf("invalid op %s for type %s", op, lhsType)
+		}
+	case lexer.Lt:
+		opType = types.BooleanType
+		switch {
+		case lhsType.IsA(types.IntegerType), lhsType.IsA(types.BooleanType):
+			opVal = c.builder.CreateICmp(llvm.IntSLT, lhsVal.Value, rhsVal.Value, "ilt")
+		case lhsType.IsA(types.RealType):
+			opVal = c.builder.CreateFCmp(llvm.FloatOLT, lhsVal.Value, rhsVal.Value, "flt")
+		default:
+			return PaskalValue{}, fmt.Errorf("invalid op %s for type %s", op, lhsType)
+		}
+	case lexer.Lte:
+		opType = types.BooleanType
+		switch {
+		case lhsType.IsA(types.IntegerType), lhsType.IsA(types.BooleanType):
+			opVal = c.builder.CreateICmp(llvm.IntSLE, lhsVal.Value, rhsVal.Value, "ilte")
+		case lhsType.IsA(types.RealType):
+			opVal = c.builder.CreateFCmp(llvm.FloatOLT, lhsVal.Value, rhsVal.Value, "flte")
+		default:
+			return PaskalValue{}, fmt.Errorf("invalid op %s for type %s", op, lhsType)
+		}
+	case lexer.Gt:
+		opType = types.BooleanType
+		switch {
+		case lhsType.IsA(types.IntegerType), lhsType.IsA(types.BooleanType):
+			opVal = c.builder.CreateICmp(llvm.IntSGT, lhsVal.Value, rhsVal.Value, "igt")
+		case lhsType.IsA(types.RealType):
+			opVal = c.builder.CreateFCmp(llvm.FloatOGT, lhsVal.Value, rhsVal.Value, "fgt")
+		default:
+			return PaskalValue{}, fmt.Errorf("invalid op %s for type %s", op, lhsType)
+		}
+	case lexer.Gte:
+		opType = types.BooleanType
+		switch {
+		case lhsType.IsA(types.IntegerType), lhsType.IsA(types.BooleanType):
+			opVal = c.builder.CreateICmp(llvm.IntSGE, lhsVal.Value, rhsVal.Value, "igte")
+		case lhsType.IsA(types.RealType):
+			opVal = c.builder.CreateFCmp(llvm.FloatOGE, lhsVal.Value, rhsVal.Value, "fgte")
+		default:
+			return PaskalValue{}, fmt.Errorf("invalid op %s for type %s", op, lhsType)
+		}
 	case lexer.And:
 		opType = lhsType
 		switch {
@@ -475,7 +568,7 @@ func (c *Compiler) compileBinaryExpr(lhs, rhs ast.Node, op lexer.Kind) (PaskalVa
 }
 
 func (c *Compiler) compileUnaryExpr(expr ast.Node, op lexer.Kind) (PaskalValue, error) {
-	unaryVal, err := c.compileExpr(expr)
+	unaryVal, err := c.compileExpr(expr, false)
 	if err != nil {
 		return PaskalValue{}, err
 	}
@@ -486,19 +579,11 @@ func (c *Compiler) compileUnaryExpr(expr ast.Node, op lexer.Kind) (PaskalValue, 
 	case lexer.Deref:
 		unaryValType = unaryValType.DerefType()
 		if unaryValType == nil {
-			return PaskalValue{}, fmt.Errorf("cannot deref (rvalue) type %s", unaryValType)
-		}
-		if unaryValType.DerefType() == nil {
-			return PaskalValue{}, fmt.Errorf("cannot deref type %s", unaryValType)
+			return PaskalValue{}, fmt.Errorf("cannot deref type %s", unaryVal.TypeValue.Type())
 		}
 		opVal = c.builder.CreateLoad(unaryVal.Value, "ptrderef")
 	case lexer.AddressOf:
-		if unaryValType.DerefType() == nil {
-			return PaskalValue{}, fmt.Errorf("cannot deref (rvalue) type %s", unaryValType)
-		}
-		// oldType := unaryValType
-		unaryValType = unaryValType.RefType()
-		opVal = c.builder.CreatePointerCast(unaryVal.Value, unaryValType.LLVMType(), "addressof")
+		opVal = unaryVal.Value
 		// opVal = c.Builder.CreateBitCast(unaryVal.Value, unaryValType.LLVMType(), "addressof")
 	case lexer.LNot, lexer.Not:
 		if !unaryValType.IsA(types.BooleanType) && !unaryValType.IsA(types.IntegerType) {
@@ -529,7 +614,7 @@ func (c *Compiler) compileIdentifierExpr(expr ast.IdentifierExpression) (PaskalV
 	if err != nil {
 		return PaskalValue{}, err
 	}
-	identifier = c.deref(identifier)
+	// identifier = c.deref(identifier)
 	return identifier, nil
 }
 
@@ -561,8 +646,12 @@ func (c *Compiler) compileRealExpr(expr ast.RealExpression) (PaskalValue, error)
 func (c *Compiler) compileStringExpr(expr ast.StringExpression) (PaskalValue, error) {
 	val := c.builder.CreateGlobalString(string(expr), "str")
 	val.SetLinkage(llvm.PrivateLinkage)
+	arrType := &types.Array{
+		Base:         types.CharacterType,
+		ElementCount: len(expr),
+	}
 	return PaskalValue{
-		TypeValue: types.NewVariable("", types.StringType),
+		TypeValue: types.NewVariable("", arrType).Ref(),
 		Value:     val,
 	}, nil
 }
@@ -577,13 +666,25 @@ func (c *Compiler) compileCharacterExpr(expr ast.CharacterExpression) (PaskalVal
 }
 
 func (c *Compiler) deref(val PaskalValue) PaskalValue {
-	isPtr := val.TypeValue.Type().DerefType() == nil
-	if !isPtr {
+	isPtr := val.TypeValue.Type().DerefType() != nil
+
+	if isPtr {
+		arr, isArr := val.TypeValue.Deref().Type().(*types.Array)
+		if isArr && arr.Base.IsA(types.CharacterType) {
+			return PaskalValue{
+				TypeValue: types.NewVariable("", arr.Base.RefType()),
+				Value:     c.builder.CreateGEP(val.Value, []llvm.Value{llvm.ConstInt(llvm.Int32Type(), 0, true), llvm.ConstInt(llvm.Int32Type(), 0, true)}, ""),
+			}
+		}
 		derefVal := c.builder.CreateLoad(val.Value, "deref")
-		return PaskalValue{
+		derefPaskalVal := PaskalValue{
 			TypeValue: val.TypeValue.Deref(),
 			Value:     derefVal,
 		}
+		if _, ok := val.TypeValue.Type().DerefType().(*types.Array); ok {
+			return c.deref(derefPaskalVal)
+		}
+		return derefPaskalVal
 	}
 	return val
 }

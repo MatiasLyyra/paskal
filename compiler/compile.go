@@ -143,8 +143,9 @@ func (c *Compiler) Emit(fileType llvm.CodeGenFileType) ([]byte, error) {
 func (c *Compiler) Dispose() {
 	c.tm.Dispose()
 	c.builder.Dispose()
+	// TODO: Check why disposing context causes program to crash in the tests
+	// c.context.Dispose()
 	c.Module.Dispose()
-	c.context.Dispose()
 	c.fPM.Dispose()
 	c.mPM.Dispose()
 }

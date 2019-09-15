@@ -124,9 +124,6 @@ end
 			result:   6,
 		},
 	}
-	llvm.InitializeAllAsmParsers()
-	llvm.InitializeAllAsmPrinters()
-	llvm.InitializeAllTargets()
 	llvm.InitializeNativeTarget()
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
@@ -139,6 +136,7 @@ end
 				t.Fatal(err)
 			}
 			c := compiler.NewCompiler(module, 0, 0)
+			defer c.Dispose()
 			err = c.Compile()
 			if err != nil {
 				t.Fatal(err)

@@ -1,15 +1,10 @@
-FROM golang:1.12-stretch
+FROM matiaslyyra/go-llvm-bindings:1.0
 
-RUN apt-get update -q && apt-get install -y cmake gcc subversion curl unzip
-RUN go get -d llvm.org/llvm/bindings/go/llvm
-RUN rm -rf /go/src/llvm.org/llvm/bindings/go
-RUN mkdir -p /go/src/llvm.org/llvm/bindings
-RUN curl -sL https://github.com/MatiasLyyra/paskal/releases/download/llvm-go-bindings/go.zip -o /go/src/llvm.org/llvm/bindings/go.zip
-RUN unzip /go/src/llvm.org/llvm/bindings/go.zip -d /go/src/llvm.org/llvm/bindings
-RUN rm /go/src/llvm.org/llvm/bindings/go.zip
-RUN chmod +x /go/src/llvm.org/llvm/bindings/go/build.sh
-RUN /go/src/llvm.org/llvm/bindings/go/build.sh -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
-RUN mkdir -p /go/src/github.com/MatiasLyyra/paskal
+RUN mkdir -p /go/src/github.com/MatiasLyyra/paskal /app
+WORKDIR /app
 ADD . /go/src/github.com/MatiasLyyra/paskal
-RUN ls -la /go/src/llvm.org/llvm/include/llvm-c
-RUN go build github.com/MatiasLyyra/paskal
+RUN go build /go/src/github.com/MatiasLyyra/paskal/server
+RUN chmod +x /go/src/llvm.org/llvm/bindings/go/llvm/workdir/llvm_build/bin/lli
+ENV LLI_PATH /go/src/llvm.org/llvm/bindings/go/llvm/workdir/llvm_build/bin/lli
+EXPOSE 8080
+ENTRYPOINT [ "./server" ]

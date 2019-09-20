@@ -33,8 +33,19 @@ func main() {
 		return
 	}
 	llvm.InitializeNativeTarget()
-	http.HandleFunc("/execute", execute)
+	http.Handle("/execute", corsMiddleware(http.HandlerFunc(execute)))
 	log.Fatalln(http.ListenAndServe(":8080", nil))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		if r.Method == "OPTIONS" {
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func execute(response http.ResponseWriter, request *http.Request) {

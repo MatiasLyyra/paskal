@@ -85,7 +85,7 @@ func execute(response http.ResponseWriter, request *http.Request) {
 	llvm.WriteBitcodeToFile(c.Module, temp)
 	fmt.Println(temp.Name())
 	buf := bytes.NewBufferString("")
-	lliCmd := exec.Command(lliPath, temp.Name())
+	lliCmd := exec.Command("timeout", "--signal=SIGKILL", "1s", lliPath, temp.Name())
 	lliCmd.Stdout = buf
 	lliCmd.Stderr = buf
 	lliCmd.Run()

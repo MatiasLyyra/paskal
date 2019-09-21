@@ -21,13 +21,14 @@ Program above can be compiled with `paskal hello.pas hello.o`. Clang can be then
 ## Currently supported features
 
 ### Datatypes
-  - Real
-  - Integer
-  - Boolean
-  - Character
-  - Static arrays
-  - String (mostly supported)
-  - Pointers to types mentioned above
+
+- Real
+- Integer
+- Boolean
+- Character
+- Static arrays
+- String (mostly supported)
+- Pointers to types mentioned above
 
 ### Example programs
 

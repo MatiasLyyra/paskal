@@ -88,6 +88,12 @@ func execute(response http.ResponseWriter, request *http.Request) {
 	lliCmd := exec.Command("timeout", "--signal=SIGKILL", "1s", lliPath, temp.Name())
 	lliCmd.Stdout = buf
 	lliCmd.Stderr = buf
-	lliCmd.Run()
-	response.Write(buf.Bytes())
+	err = lliCmd.Run()
+	output := buf.Bytes()
+	// Todo: Implement proper timeout inside server
+	if len(output) == 0 {
+		output = []byte("No output or execution timed out")
+		response.WriteHeader(408)
+	}
+	response.Write(output)
 }

@@ -4,3 +4,7 @@ LICENSE
 paskal.code-workspace
 README.md
 .docker/
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+.git
+.gitignore

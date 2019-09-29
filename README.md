@@ -1,6 +1,6 @@
 # Paskal
 
-Compiler for pascal like language.
+Compiler for pascal like language. Also checkout [paskal-client](https://github.com/MatiasLyyra/paskal-client) where you can run paskal from your browser.
 
 ## Building
 
